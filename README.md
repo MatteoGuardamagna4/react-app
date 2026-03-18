@@ -1,3 +1,5 @@
+# Smart Workout Recommender
+
 ## Setup
 #### Option 1 (full features)
 1. Clone the repo
@@ -24,39 +26,88 @@ The project was originally prototyped in Python (Streamlit + KMeans clustering) 
 
 ## Architecture
 
-```
-Browser (Vite + React)            Express Server (:3001)
-========================          ========================
+### System Overview
 
-  QuizTab                          POST /api/workout/generate
-    StepAboutYou                     -> preprocessing.js (rule-based
-    StepFitnessLevel                    clustering, 4 fitness profiles)
-    StepPreferences                  -> groq.js (Llama 3.3 70B)
-    BmiGauge                         <- 7-day plan JSON
-       |
-       v
-  PlanTab                          POST /api/chat
-    expandable exercises             -> groq.js (multi-turn, profile-
-    completion checkboxes               aware system prompt)
-       |                             <- assistant message
-       v
-  CoachTab                         POST /api/rewards/calculate
-    multi-turn chat UI               -> completion stats computation
-       |                             -> groq.js (achievements, grade,
-       v                                motivational feedback)
-  RewardsTab                         <- XP + rewards JSON
-    XP + achievements
-    performance rating             POST /api/plots/generate
-    strengths / improvements         -> gemini.js (SVG chart generation)
-    AiPlots                          <- 3 SVG charts (bar, donut,
-       bar chart (weekly)               progress bars)
-       donut (muscle groups)         Falls back to mock SVGs when
-       progress bars (XP/streak)        Gemini quota is exhausted
+```mermaid
+graph LR
+  subgraph Browser ["Browser (Vite + React :5173)"]
+    A[QuizTab] --> B[PlanTab]
+    B --> C[CoachTab]
+    B --> D[InsightsTab]
+    B --> E[RewardsTab]
+  end
+
+  subgraph Server ["Express Server (:3001)"]
+    R1["/api/workout/generate"]
+    R2["/api/chat"]
+    R3["/api/rewards/calculate"]
+    R4["/api/plots/generate"]
+  end
+
+  subgraph Services ["Backend Services"]
+    P["preprocessing.js\n(rule-based clustering)"]
+    G["groq.js\n(Llama 3.3 70B)"]
+    GM["gemini.js\n(model chain)"]
+  end
+
+  A -- "user profile" --> R1
+  C -- "message + history" --> R2
+  E -- "completedDays + plan" --> R3
+  E -- "stats + plan" --> R4
+
+  R1 --> P --> G
+  R2 --> G
+  R3 --> G
+  R4 --> GM
+```
+
+### Data Flow
+
+```mermaid
+flowchart TD
+  Q["Quiz\n(3-step assessment)"] -->|user profile + BMI| CL["Clustering\n(4 fitness profiles)"]
+  CL -->|cluster + profile| LLM1["Groq LLM\n(Llama 3.3 70B)"]
+  LLM1 -->|7-day plan JSON| PLAN["Plan Tab\n(exercises + checkboxes)"]
+  PLAN -->|completed days| COACH["Coach Tab\n(multi-turn chat)"]
+  PLAN -->|completed days| INS["Insights Tab\n(4 client-side SVGs)"]
+  PLAN -->|completion stats| REW["Rewards Tab\n(XP + achievements)"]
+  REW -->|stats + plan| GEM{"Gemini API\navailable?"}
+  GEM -->|Yes| AI_CHARTS["AI-Generated SVG Charts\n(bar, donut, progress)"]
+  GEM -->|No| MOCK["Mock SVG Charts\n(same geometry, labeled)"]
+  COACH -->|message| LLM1
+  REW -->|stats| LLM1
+```
+
+### File Structure
+
+```mermaid
+graph TD
+  subgraph Frontend ["src/"]
+    APP["App.jsx"] --> QUIZ["components/Quiz/\nQuizTab, StepAboutYou,\nStepFitnessLevel, StepPreferences,\nBmiGauge"]
+    APP --> PLNC["components/Plan/\nPlanTab"]
+    APP --> COAC["components/Coach/\nCoachTab"]
+    APP --> INSC["components/Insights/\nInsightsTab, WeeklyBars,\nMuscleRadar, CalorieCurve,\nBodyHeatMap"]
+    APP --> REWC["components/Rewards/\nRewardsTab, AiPlots"]
+    APP --> CTX["context/AppContext.jsx\n(useReducer store)"]
+    APP --> API["services/api.js\n(fetch wrapper)"]
+  end
+
+  subgraph Backend ["server/"]
+    IDX["index.js"] --> WR["routes/workout.js"]
+    IDX --> CR["routes/chat.js"]
+    IDX --> RR["routes/rewards.js"]
+    IDX --> PR["routes/plots.js"]
+    WR --> PRE["services/preprocessing.js"]
+    WR --> GRQ["services/groq.js"]
+    CR --> GRQ
+    RR --> GRQ
+    PR --> GEM["services/gemini.js"]
+  end
 ```
 
 ### Frontend
 
-Built with Vite and React (JSX, no TypeScript). State is managed through a single React Context + `useReducer` pattern in `src/context/AppContext.jsx`, which holds user profile data, the generated plan, completion state, and chat history. The UI renders inside a phone-shaped frame on desktop (500px wide) and switches to full-screen on mobile below 600px. Styling uses custom CSS with a dark gradient theme (purple to pink to warm orange), with no CSS framework dependencies.
+Built with Vite and React (JSX, no TypeScript). State is managed through a single React Context + `useReducer` pattern in `src/context/AppContext.jsx`, which holds user profile data, the generated plan, completion state, and chat history. The UI is organized into five tabs: Quiz, Plan, Coach, Insights, and Rewards. The Insights tab provides four hand-coded SVG visualizations (weekly bar chart, muscle radar, calorie curve, body heatmap) that render client-side without any LLM dependency. The UI renders inside a phone-shaped frame on desktop (500px wide) and switches to full-screen on mobile below 600px. Styling uses custom CSS with a dark gradient theme (purple to pink to warm orange), with no CSS framework dependencies.
 
 ### Backend
 
