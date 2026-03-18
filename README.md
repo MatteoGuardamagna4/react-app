@@ -5,6 +5,12 @@
 GROQ_API_KEY=your_key_here
 GEMINI_API_KEY=your_key_here
 ```
-3. `npm install && npm run dev`
-   OR --> Go on Hugging Face Spaces to see the prototype app; but in that case all the llm features are lost
-   https://huggingface.co/spaces/MatteoG4444/smart-workout-recommender_prototype/tree/main
+3. **Run the app**
+
+   **Option A – Local (full features)**
+```
+   npm install && npm run dev
+```
+
+   **Option B – Hosted prototype** (LLM features disabled)
+   [View on Hugging Face Spaces](https://huggingface.co/spaces/MatteoG4444/smart-workout-recommender_prototype/tree/main)
