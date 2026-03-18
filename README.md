@@ -20,7 +20,7 @@ GEMINI_API_KEY=your_key_here
 
 Smart Workout Recommender is a full-stack fitness application that generates personalized weekly workout plans, provides real-time AI coaching, and tracks user progress through gamified rewards. The app collects user data via a guided quiz (body metrics, fitness level, workout preferences), feeds it through a rule-based clustering algorithm to categorize fitness profiles, and then leverages large language models to produce tailored exercise programs and conversational coaching.
 
-The project was originally prototyped in Python (Flask + KMeans clustering) and has been fully ported to a JavaScript-only stack for faster iteration and simpler deployment.
+The project was originally prototyped in Python (Streamlit + KMeans clustering) and has been fully ported to a JavaScript-only stack for faster iteration and simpler deployment.
 
 ## Architecture
 
