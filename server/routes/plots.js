@@ -186,6 +186,67 @@ ${rowSpecs}
 IMPORTANT: Do NOT add any other text, labels, annotations, or decorations beyond the title and the bars above.`;
 }
 
+// ── Mock SVG fallbacks when Gemini is unavailable ──
+
+function mockBarSvg(geo) {
+  const bars = geo.bars.map(b =>
+    `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="6" fill="${b.color}"/>` +
+    `<text x="${b.x + b.w / 2}" y="${geo.chartBottom + 16}" text-anchor="middle" font-size="11" fill="#e2e8f0">${b.label}</text>` +
+    (b.h > 0 ? `<text x="${b.x + b.w / 2}" y="${b.y - 5}" text-anchor="middle" font-size="10" fill="#e2e8f0">${b.value}</text>` : '')
+  ).join('\n');
+
+  const grid = geo.gridLines.map(g =>
+    `<line x1="${geo.chartLeft}" y1="${g.y}" x2="355" y2="${g.y}" stroke="#e2e8f0" stroke-opacity="0.1"/>` +
+    `<text x="${geo.chartLeft - 8}" y="${g.y + 4}" text-anchor="end" font-size="10" fill="#e2e8f0" fill-opacity="0.5">${g.label}</text>`
+  ).join('\n');
+
+  return `<svg viewBox="0 0 380 260" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+  <rect width="380" height="260" rx="8" fill="#1a1a2e"/>
+  <text x="190" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="#e2e8f0">Weekly Exercise Count</text>
+  <text x="190" y="255" text-anchor="middle" font-size="9" fill="#e2e8f0" fill-opacity="0.4">[MOCK DATA -- Gemini unavailable]</text>
+  ${grid}
+  <line x1="${geo.chartLeft}" y1="${geo.chartBottom}" x2="${geo.chartLeft}" y2="45" stroke="#e2e8f0" stroke-opacity="0.3"/>
+  <line x1="${geo.chartLeft}" y1="${geo.chartBottom}" x2="355" y2="${geo.chartBottom}" stroke="#e2e8f0" stroke-opacity="0.3"/>
+  ${bars}
+</svg>`;
+}
+
+function mockDonutSvg(geo) {
+  const slices = geo.slices.map(s => `<path d="${s.path}" fill="${s.color}"/>`).join('\n');
+
+  const legendStartY = 75;
+  const legend = geo.slices.map((s, i) =>
+    `<rect x="225" y="${legendStartY + i * 24}" width="12" height="12" rx="2" fill="${s.color}"/>` +
+    `<text x="243" y="${legendStartY + i * 24 + 10}" font-size="12" fill="#e2e8f0">${s.name} ${s.pct}%</text>`
+  ).join('\n');
+
+  return `<svg viewBox="0 0 380 260" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+  <rect width="380" height="260" rx="8" fill="#1a1a2e"/>
+  <text x="190" y="30" text-anchor="middle" font-size="14" font-weight="bold" fill="#e2e8f0">Muscle Group Distribution</text>
+  <text x="190" y="255" text-anchor="middle" font-size="9" fill="#e2e8f0" fill-opacity="0.4">[MOCK DATA -- Gemini unavailable]</text>
+  ${slices}
+  <text x="${geo.cx}" y="${geo.cy - 4}" text-anchor="middle" font-size="20" font-weight="bold" fill="#e2e8f0">${geo.total}</text>
+  <text x="${geo.cx}" y="${geo.cy + 14}" text-anchor="middle" font-size="10" fill="#e2e8f0" fill-opacity="0.6">total</text>
+  ${legend}
+</svg>`;
+}
+
+function mockStatsSvg(geo) {
+  const rows = geo.rows.map(row =>
+    `<text x="${row.x - 8}" y="${row.y + row.h / 2 + 4}" text-anchor="end" font-size="12" fill="#e2e8f0">${row.label}</text>` +
+    `<rect x="${row.x}" y="${row.y}" width="${row.fullW}" height="${row.h}" rx="9" fill="#e2e8f0" fill-opacity="0.08"/>` +
+    `<rect x="${row.x}" y="${row.y}" width="${row.w}" height="${row.h}" rx="9" fill="${row.color}"/>` +
+    `<text x="${row.x + row.w + 8}" y="${row.y + row.h / 2 + 4}" font-size="11" fill="#e2e8f0">${row.display}</text>`
+  ).join('\n');
+
+  return `<svg viewBox="0 0 380 260" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+  <rect width="380" height="260" rx="8" fill="#1a1a2e"/>
+  <text x="190" y="35" text-anchor="middle" font-size="14" font-weight="bold" fill="#e2e8f0">Your Progress</text>
+  <text x="190" y="255" text-anchor="middle" font-size="9" fill="#e2e8f0" fill-opacity="0.4">[MOCK DATA -- Gemini unavailable]</text>
+  ${rows}
+</svg>`;
+}
+
 function extractSvg(raw) {
   if (!raw) return null;
   let text = raw.replace(/^```[a-z]*\n?/gm, '').replace(/\n?```$/gm, '').trim();
@@ -227,11 +288,16 @@ router.post('/generate', async (req, res) => {
     }
 
     if (charts.length === 0) {
-      const detail = errors.length > 0 ? errors[0] : 'No charts generated';
-      return res.status(503).json({ error: `Plot generation failed: ${detail}` });
+      console.warn('[plots] Gemini unavailable, returning mock charts');
+      const mockCharts = [
+        mockBarSvg(barGeo),
+        mockDonutSvg(donutGeo),
+        mockStatsSvg(statsGeo),
+      ];
+      return res.json({ charts: mockCharts, mock: true });
     }
 
-    res.json({ charts });
+    res.json({ charts, mock: false });
   } catch (error) {
     console.error('Plots error:', error);
     res.status(500).json({ error: 'Failed to generate plots' });
