@@ -2,7 +2,7 @@
 title: Smart Workout Recommender
 emoji: 💪
 colorFrom: purple
-colorTo: orange
+colorTo: indigo
 sdk: docker
 pinned: false
 ---
