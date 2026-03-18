@@ -272,18 +272,19 @@ router.post('/generate', async (req, res) => {
       statsPrompt(statsGeo),
     ];
 
-    // Generate sequentially with delays to avoid rate-limit bursts
+    // Try Gemini for each chart; bail early if quota is exhausted
     const charts = [];
-    const errors = [];
+    let geminiDown = false;
     for (let i = 0; i < prompts.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 3000));
+      if (geminiDown) break;
+      if (i > 0) await new Promise(r => setTimeout(r, 1000));
       try {
         const raw = await callGemini({ prompt: prompts[i], temperature: 0.8, maxTokens: 4096 });
         const svg = extractSvg(raw);
         if (svg) charts.push(svg);
       } catch (e) {
         console.error('Chart generation failed:', e.message?.slice(0, 200));
-        errors.push(e.message?.slice(0, 150) || 'Unknown error');
+        geminiDown = true;
       }
     }
 

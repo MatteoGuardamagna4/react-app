@@ -85,12 +85,13 @@ export default function AiPlots({ stats, plan, userData, completedDays }) {
             padding: 8,
             animationDelay: `${i * 0.15}s`,
             overflow: 'hidden',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
           }}
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        >
+          <div
+            style={{ width: '100%', textAlign: 'center' }}
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+        </div>
       ))}
       <button
         className="btn btn-secondary btn-full"
