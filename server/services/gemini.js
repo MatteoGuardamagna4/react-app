@@ -37,9 +37,7 @@ export async function callGemini({ prompt, temperature = 0.9, maxTokens = 12000 
       lastErr = err;
       console.warn(`[gemini] ${modelId} failed: ${err.message?.slice(0, 150)}`);
       const is429 = err.message?.includes('429') || err.status === 429;
-      const isQuotaExhausted = err.message?.includes('exceeded') || err.message?.includes('quota');
-      if (is429 && !isQuotaExhausted) continue;
-      // Quota exhausted or non-retryable error -- stop immediately
+      if (is429) continue;
       throw err;
     }
   }
