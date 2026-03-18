@@ -12,4 +12,4 @@ GEMINI_API_KEY=your_key_here
 ```
 
  #### Option 2 – Hosted prototype (LLM features disabled)
-[View on Hugging Face Spaces](https://huggingface.co/spaces/MatteoG4444/smart-workout-recommender_prototype/tree/main)
+[View on Hugging Face Spaces](https://huggingface.co/spaces/MatteoG4444/smart-workout-recommender_prototype)
