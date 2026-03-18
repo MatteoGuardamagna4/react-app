@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { calculateRewards } from '../../services/api.js';
+import AiPlots from './AiPlots.jsx';
 
 const ICON_MAP = {
   footprints: 'FT',
@@ -202,6 +203,14 @@ export default function RewardsTab() {
           </div>
         </div>
       )}
+
+      {/* AI-Generated Plots */}
+      <AiPlots
+        stats={stats}
+        plan={workoutPlan}
+        userData={userData}
+        completedDays={completedDays}
+      />
 
       <button
         className="btn btn-secondary btn-full"

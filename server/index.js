@@ -4,6 +4,7 @@ import cors from 'cors';
 import workoutRoutes from './routes/workout.js';
 import chatRoutes from './routes/chat.js';
 import rewardsRoutes from './routes/rewards.js';
+import plotsRoutes from './routes/plots.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -14,9 +15,10 @@ app.use(express.json());
 app.use('/api/workout', workoutRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/rewards', rewardsRoutes);
+app.use('/api/plots', plotsRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', hasApiKey: !!process.env.GROQ_API_KEY });
+  res.json({ status: 'ok', hasApiKey: !!process.env.GROQ_API_KEY, hasGeminiKey: !!process.env.GEMINI_API_KEY });
 });
 
 app.listen(PORT, () => {

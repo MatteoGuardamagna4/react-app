@@ -6,7 +6,11 @@ async function post(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    let msg = `API error: ${res.status}`;
+    try { const body = await res.json(); if (body.error) msg = body.error; } catch {}
+    throw new Error(msg);
+  }
   return res.json();
 }
 
@@ -20,6 +24,10 @@ export async function sendChatMessage({ message, history, userData, clusterInfo,
 
 export async function calculateRewards({ completedDays, plan, userData }) {
   return post('/rewards/calculate', { completedDays, plan, userData });
+}
+
+export async function generatePlots({ stats, plan, userData, completedDays }) {
+  return post('/plots/generate', { stats, plan, userData, completedDays });
 }
 
 export async function checkHealth() {
