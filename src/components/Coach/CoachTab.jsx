@@ -2,8 +2,36 @@ import { useState, useRef, useEffect } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { sendChatMessage } from '../../services/api.js';
 
+function FeedbackButtons({ messageIndex, feedback, onFeedback }) {
+  const current = feedback[`chat_${messageIndex}`];
+  return (
+    <div className="feedback-row">
+      <button
+        className={`feedback-btn ${current === 'up' ? 'active-up' : ''}`}
+        onClick={() => onFeedback(messageIndex, current === 'up' ? null : 'up')}
+        title="Helpful"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+        </svg>
+      </button>
+      <button
+        className={`feedback-btn ${current === 'down' ? 'active-down' : ''}`}
+        onClick={() => onFeedback(messageIndex, current === 'down' ? null : 'down')}
+        title="Not helpful"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+          <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export default function CoachTab() {
-  const { chatMessages, userData, clusterInfo, workoutPlan, quizCompleted } = useAppState();
+  const { chatMessages, userData, clusterInfo, workoutPlan, quizCompleted, feedback } = useAppState();
   const dispatch = useAppDispatch();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -26,6 +54,10 @@ export default function CoachTab() {
     );
   }
 
+  const handleFeedback = (messageIndex, value) => {
+    dispatch({ type: 'SET_FEEDBACK', payload: { key: `chat_${messageIndex}`, value } });
+  };
+
   const handleSend = async () => {
     const msg = input.trim();
     if (!msg || sending) return;
@@ -36,12 +68,17 @@ export default function CoachTab() {
 
     try {
       const history = chatMessages.map(m => ({ role: m.role, content: m.content }));
+      const feedbackSummary = Object.entries(feedback)
+        .filter(([k]) => k.startsWith('chat_'))
+        .map(([k, v]) => `Message ${k.split('_')[1]}: ${v}`)
+        .join(', ');
       const { reply } = await sendChatMessage({
         message: msg,
         history,
         userData,
         clusterInfo,
         plan: workoutPlan,
+        feedbackSummary,
       });
       dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'assistant', content: reply } });
     } catch (e) {
@@ -75,8 +112,17 @@ export default function CoachTab() {
           </div>
         )}
         {chatMessages.map((msg, i) => (
-          <div key={i} className={`chat-bubble ${msg.role} fade-in`}>
-            {msg.content}
+          <div key={i} className={`chat-bubble-wrapper ${msg.role}`}>
+            <div className={`chat-bubble ${msg.role} fade-in`}>
+              {msg.content}
+            </div>
+            {msg.role === 'assistant' && (
+              <FeedbackButtons
+                messageIndex={i}
+                feedback={feedback}
+                onFeedback={handleFeedback}
+              />
+            )}
           </div>
         ))}
         {sending && (

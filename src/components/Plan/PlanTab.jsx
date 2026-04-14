@@ -1,8 +1,88 @@
 import { useState, useEffect } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
-import { generatePlan } from '../../services/api.js';
+import { generatePlan, getAlternatives } from '../../services/api.js';
 
-function DayCard({ day, isCompleted, isRest, onToggle }) {
+function ExerciseItem({ exercise, dayName, exerciseIndex, feedback, onFeedback, onSwap }) {
+  const [alts, setAlts] = useState(null);
+  const [loadingAlts, setLoadingAlts] = useState(false);
+  const feedbackKey = `ex_${dayName}_${exerciseIndex}`;
+  const current = feedback[feedbackKey];
+
+  const handleSwap = async () => {
+    if (loadingAlts) return;
+    setLoadingAlts(true);
+    try {
+      const result = await onSwap(exercise.name, dayName);
+      setAlts(result);
+    } catch {
+      setAlts(null);
+    } finally {
+      setLoadingAlts(false);
+    }
+  };
+
+  return (
+    <div className="exercise-item">
+      <div className="exercise-info">
+        <span className="exercise-name">{exercise.name}</span>
+        <span className="exercise-details">{exercise.details}</span>
+      </div>
+      <div className="exercise-actions-row">
+        <a
+          className="exercise-yt-link"
+          href={`https://www.youtube.com/results?search_query=how+to+${encodeURIComponent(exercise.name)}+exercise+form`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Watch
+        </a>
+        <button className="exercise-swap-btn" onClick={handleSwap} disabled={loadingAlts}>
+          {loadingAlts ? '...' : 'Swap'}
+        </button>
+        <div className="feedback-row compact">
+          <button
+            className={`feedback-btn small ${current === 'up' ? 'active-up' : ''}`}
+            onClick={() => onFeedback(feedbackKey, current === 'up' ? null : 'up')}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+            </svg>
+          </button>
+          <button
+            className={`feedback-btn small ${current === 'down' ? 'active-down' : ''}`}
+            onClick={() => onFeedback(feedbackKey, current === 'down' ? null : 'down')}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+              <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      {alts && alts.length > 0 && (
+        <div className="alternatives-list fade-in">
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary-light)', marginBottom: 4 }}>
+            Alternatives:
+          </div>
+          {alts.map((alt, i) => (
+            <div key={i} className="alternative-item">
+              <span style={{ fontWeight: 600, fontSize: 12 }}>{alt.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{alt.details}</span>
+              {alt.reason && <span style={{ fontSize: 10, color: 'var(--text-secondary)', fontStyle: 'italic' }}>{alt.reason}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DayCard({ day, isCompleted, isRest, onToggle, feedback, onFeedback, onSwap }) {
   const [expanded, setExpanded] = useState(false);
   const exercises = day.exercises || [];
 
@@ -40,24 +120,15 @@ function DayCard({ day, isCompleted, isRest, onToggle }) {
       {expanded && (
         <div className="exercise-list fade-in" style={{ marginTop: 8 }}>
           {exercises.map((ex, i) => (
-            <div key={i} className="exercise-item">
-              <div className="exercise-info">
-                <span className="exercise-name">{ex.name}</span>
-                <span className="exercise-details">{ex.details}</span>
-              </div>
-              <a
-                className="exercise-yt-link"
-                href={`https://www.youtube.com/results?search_query=how+to+${encodeURIComponent(ex.name)}+exercise+form`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Watch tutorial
-              </a>
-            </div>
+            <ExerciseItem
+              key={i}
+              exercise={ex}
+              dayName={day.day}
+              exerciseIndex={i}
+              feedback={feedback}
+              onFeedback={onFeedback}
+              onSwap={onSwap}
+            />
           ))}
         </div>
       )}
@@ -66,11 +137,24 @@ function DayCard({ day, isCompleted, isRest, onToggle }) {
 }
 
 export default function PlanTab() {
-  const { workoutPlan, completedDays, userData, loading } = useAppState();
+  const { workoutPlan, completedDays, userData, loading, feedback } = useAppState();
   const dispatch = useAppDispatch();
   const [error, setError] = useState(null);
 
   const isLoading = loading.plan;
+
+  const handleFeedback = (key, value) => {
+    dispatch({ type: 'SET_FEEDBACK', payload: { key, value } });
+  };
+
+  const handleSwap = async (exerciseName, dayName) => {
+    const result = await getAlternatives({
+      exerciseName,
+      dayFocus: dayName,
+      userData,
+    });
+    return result.alternatives || [];
+  };
 
   const fetchPlan = async () => {
     dispatch({ type: 'SET_LOADING', payload: { key: 'plan', value: true } });
@@ -151,6 +235,9 @@ export default function PlanTab() {
             isRest={isRest}
             isCompleted={completedDays[day.day] || false}
             onToggle={() => dispatch({ type: 'TOGGLE_DAY', payload: day.day })}
+            feedback={feedback}
+            onFeedback={handleFeedback}
+            onSwap={handleSwap}
           />
         );
       })}

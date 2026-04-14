@@ -30,6 +30,14 @@ export async function generatePlots({ stats, plan, userData, completedDays }) {
   return post('/plots/generate', { stats, plan, userData, completedDays });
 }
 
+export async function getAlternatives({ exerciseName, dayFocus, userData }) {
+  return post('/workout/alternatives', { exerciseName, dayFocus, userData });
+}
+
+export async function generateNutrition({ userData, plan, completedDays }) {
+  return post('/nutrition/generate', { userData, plan, completedDays });
+}
+
 export async function checkHealth() {
   const res = await fetch(`${BASE}/health`);
   return res.json();

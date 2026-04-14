@@ -1,9 +1,11 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
 
 const AppContext = createContext(null);
 const AppDispatchContext = createContext(null);
 
-const initialState = {
+const STORAGE_KEY = 'swr_app_state';
+
+const defaultState = {
   activeTab: 'quiz',
   quizCompleted: false,
   quizStep: 0,
@@ -28,8 +30,39 @@ const initialState = {
   completedDays: {},
   chatMessages: [],
   rewardsData: null,
+  feedback: {},
+  nutritionPlan: null,
   loading: {},
 };
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState;
+    const saved = JSON.parse(raw);
+    return { ...defaultState, ...saved, loading: {} };
+  } catch {
+    return defaultState;
+  }
+}
+
+const PERSISTED_KEYS = [
+  'activeTab', 'quizCompleted', 'quizStep', 'userData',
+  'cluster', 'clusterInfo', 'workoutPlan', 'completedDays',
+  'chatMessages', 'rewardsData', 'feedback', 'nutritionPlan',
+];
+
+function saveState(state) {
+  try {
+    const toSave = {};
+    for (const key of PERSISTED_KEYS) {
+      toSave[key] = state[key];
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch { /* quota exceeded -- silently ignore */ }
+}
+
+const initialState = loadState();
 
 function appReducer(state, action) {
   switch (action.type) {
@@ -62,6 +95,12 @@ function appReducer(state, action) {
       return { ...state, chatMessages: [...state.chatMessages, action.payload] };
     case 'SET_REWARDS':
       return { ...state, rewardsData: action.payload };
+    case 'SET_FEEDBACK':
+      return { ...state, feedback: { ...state.feedback, [action.payload.key]: action.payload.value } };
+    case 'SET_NUTRITION':
+      return { ...state, nutritionPlan: action.payload };
+    case 'RESET_ALL':
+      return { ...defaultState };
     case 'SET_LOADING':
       return { ...state, loading: { ...state.loading, [action.payload.key]: action.payload.value } };
     default:
@@ -71,6 +110,11 @@ function appReducer(state, action) {
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  useEffect(() => {
+    saveState(state);
+  }, [state]);
+
   return (
     <AppContext.Provider value={state}>
       <AppDispatchContext.Provider value={dispatch}>

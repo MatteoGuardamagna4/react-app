@@ -42,14 +42,18 @@ INSTRUCTIONS:
 - Be concise but helpful. Use the profile data to personalize every response.
 - If the user asks something outside fitness, politely redirect.
 - When suggesting exercise alternatives, consider their equipment and injuries.
-- Keep responses under 300 words unless the user asks for detail.`;
+- Keep responses under 300 words unless the user asks for detail.
+- The user can rate your responses with thumbs up or down. If feedback is provided below, adjust your style accordingly -- give more of what they liked and less of what they disliked.`;
 }
 
 router.post('/', async (req, res) => {
   try {
-    const { message, history, userData, clusterInfo, plan } = req.body;
+    const { message, history, userData, clusterInfo, plan, feedbackSummary } = req.body;
 
-    const systemPrompt = buildSystemPrompt(userData, clusterInfo, plan);
+    let systemPrompt = buildSystemPrompt(userData, clusterInfo, plan);
+    if (feedbackSummary) {
+      systemPrompt += `\n\nUSER FEEDBACK ON PAST RESPONSES:\n${feedbackSummary}`;
+    }
     const messages = [
       { role: 'system', content: systemPrompt },
       ...(history || []),

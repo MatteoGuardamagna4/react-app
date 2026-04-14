@@ -119,4 +119,52 @@ router.post('/generate', async (req, res) => {
   }
 });
 
+router.post('/alternatives', async (req, res) => {
+  try {
+    const { exerciseName, dayFocus, userData } = req.body;
+    const equipment = (userData?.equipment || []).join(', ') || 'None';
+    const injuries = userData?.injury_details || 'None';
+
+    const prompt = `You are a fitness coach. Suggest 3 alternative exercises to replace "${exerciseName}" for a "${dayFocus}" workout day.
+
+User context:
+- Available equipment: ${equipment}
+- Injuries/limitations: ${injuries}
+- Experience level: ${userData?.experience_level || 1} (1=beginner, 3=expert)
+- Goal: ${userData?.goal || 'General Fitness'}
+
+Return ONLY valid JSON:
+{
+  "alternatives": [
+    {"name": "Exercise Name", "details": "3 sets x 10 reps", "reason": "Brief reason why this is a good swap"}
+  ]
+}
+
+Rules: Each alternative must target the same muscle group. Consider equipment and injuries. Be specific with sets/reps.`;
+
+    let result;
+    try {
+      result = await callGroq({ prompt, temperature: 0.7, maxTokens: 600 });
+    } catch (e) {
+      console.error('Alternatives Groq error:', e.message);
+      result = null;
+    }
+
+    if (!result || !result.alternatives) {
+      result = {
+        alternatives: [
+          { name: 'Bodyweight variation', details: '3 sets x 12 reps', reason: 'No equipment needed' },
+          { name: 'Resistance band variation', details: '3 sets x 15 reps', reason: 'Lower impact on joints' },
+          { name: 'Dumbbell variation', details: '3 sets x 10 reps', reason: 'Adjustable resistance' },
+        ],
+      };
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Alternatives error:', error);
+    res.status(500).json({ error: 'Failed to get alternatives' });
+  }
+});
+
 export default router;
