@@ -6,6 +6,9 @@ import chatRoutes from './routes/chat.js';
 import rewardsRoutes from './routes/rewards.js';
 import plotsRoutes from './routes/plots.js';
 import nutritionRoutes from './routes/nutrition.js';
+import uploadRoutes from './routes/upload.js';
+import trendsRoutes from './routes/trends.js';
+import { initializeRAG } from './services/rag.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -20,13 +23,27 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/rewards', rewardsRoutes);
 app.use('/api/plots', plotsRoutes);
 app.use('/api/nutrition', nutritionRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/trends', trendsRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', hasApiKey: !!process.env.GROQ_API_KEY, hasGeminiKey: !!process.env.GEMINI_API_KEY });
+  res.json({
+    status: 'ok',
+    hasApiKey: !!process.env.GROQ_API_KEY,
+    hasGeminiKey: !!process.env.GEMINI_API_KEY,
+    hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+    hasQdrant: !!(process.env.QDRANT_URL && process.env.QDRANT_API_KEY),
+  });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  const ragReady = await initializeRAG();
+  if (ragReady) {
+    console.log('RAG system ready');
+  } else {
+    console.warn('RAG unavailable -- coach will work without knowledge retrieval');
+  }
 });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

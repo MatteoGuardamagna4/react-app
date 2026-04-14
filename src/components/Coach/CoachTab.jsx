@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
-import { sendChatMessage } from '../../services/api.js';
+import { sendChatMessage, uploadPDF } from '../../services/api.js';
+import SourceReferences from './SourceReferences.jsx';
 
 function FeedbackButtons({ messageIndex, feedback, onFeedback }) {
   const current = feedback[`chat_${messageIndex}`];
@@ -26,6 +27,56 @@ function FeedbackButtons({ messageIndex, feedback, onFeedback }) {
           <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
         </svg>
       </button>
+    </div>
+  );
+}
+
+function PDFUploadButton() {
+  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState(null);
+  const fileRef = useRef(null);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setStatus(null);
+
+    try {
+      const result = await uploadPDF(file);
+      setStatus({ ok: true, text: `Indexed "${result.filename}" (${result.chunks} chunks)` });
+    } catch (err) {
+      setStatus({ ok: false, text: err.message });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="pdf-upload-area">
+      <label className="pdf-upload-btn" title="Upload a PDF to the knowledge base">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf"
+          onChange={handleUpload}
+          disabled={uploading}
+          style={{ display: 'none' }}
+        />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        {uploading ? 'Indexing...' : 'Upload PDF'}
+      </label>
+      {status && (
+        <span className={`upload-status ${status.ok ? 'ok' : 'err'}`}>
+          {status.text}
+        </span>
+      )}
     </div>
   );
 }
@@ -72,7 +123,7 @@ export default function CoachTab() {
         .filter(([k]) => k.startsWith('chat_'))
         .map(([k, v]) => `Message ${k.split('_')[1]}: ${v}`)
         .join(', ');
-      const { reply } = await sendChatMessage({
+      const { reply, sources } = await sendChatMessage({
         message: msg,
         history,
         userData,
@@ -80,7 +131,10 @@ export default function CoachTab() {
         plan: workoutPlan,
         feedbackSummary,
       });
-      dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'assistant', content: reply } });
+      dispatch({
+        type: 'ADD_CHAT_MESSAGE',
+        payload: { role: 'assistant', content: reply, sources: sources || [] },
+      });
     } catch (e) {
       dispatch({
         type: 'ADD_CHAT_MESSAGE',
@@ -101,8 +155,12 @@ export default function CoachTab() {
   return (
     <div className="chat-container" style={{ height: '100%' }}>
       <div style={{ padding: '16px 16px 0' }}>
-        <div className="tab-header">AI Coach</div>
+        <div className="tab-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>AI Coach</span>
+          <span className="rag-badge" title="Retrieval-Augmented Generation enabled">RAG</span>
+        </div>
         <p className="tab-subtitle">Ask about your plan, nutrition, recovery, or modifications.</p>
+        <PDFUploadButton />
       </div>
 
       <div className="chat-messages">
@@ -117,11 +175,14 @@ export default function CoachTab() {
               {msg.content}
             </div>
             {msg.role === 'assistant' && (
-              <FeedbackButtons
-                messageIndex={i}
-                feedback={feedback}
-                onFeedback={handleFeedback}
-              />
+              <>
+                <SourceReferences sources={msg.sources} />
+                <FeedbackButtons
+                  messageIndex={i}
+                  feedback={feedback}
+                  onFeedback={handleFeedback}
+                />
+              </>
             )}
           </div>
         ))}

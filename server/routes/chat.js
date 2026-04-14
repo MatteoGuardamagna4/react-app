@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { callGroq } from '../services/groq.js';
+import { retrieveContext } from '../services/rag.js';
 
 const router = Router();
 
-function buildSystemPrompt(userData, clusterInfo, plan) {
+function buildSystemPrompt(userData, clusterInfo, plan, ragContext) {
   let planSummary = 'No plan generated yet.';
   if (plan && plan.days) {
     planSummary = plan.days.map(day => {
@@ -43,14 +44,18 @@ INSTRUCTIONS:
 - If the user asks something outside fitness, politely redirect.
 - When suggesting exercise alternatives, consider their equipment and injuries.
 - Keep responses under 300 words unless the user asks for detail.
-- The user can rate your responses with thumbs up or down. If feedback is provided below, adjust your style accordingly -- give more of what they liked and less of what they disliked.`;
+- The user can rate your responses with thumbs up or down. If feedback is provided below, adjust your style accordingly -- give more of what they liked and less of what they disliked.
+${ragContext ? `\nRELEVANT FITNESS KNOWLEDGE (use this to ground your answers):\n${ragContext}\n\nNaturally incorporate the above knowledge into your answer when relevant. Do not say "according to my knowledge base" -- just use the information as your own expertise.` : ''}`;
 }
 
 router.post('/', async (req, res) => {
   try {
     const { message, history, userData, clusterInfo, plan, feedbackSummary } = req.body;
 
-    let systemPrompt = buildSystemPrompt(userData, clusterInfo, plan);
+    // RAG retrieval -- get relevant knowledge chunks
+    const { contextText, sources } = await retrieveContext(message);
+
+    let systemPrompt = buildSystemPrompt(userData, clusterInfo, plan, contextText);
     if (feedbackSummary) {
       systemPrompt += `\n\nUSER FEEDBACK ON PAST RESPONSES:\n${feedbackSummary}`;
     }
@@ -72,7 +77,7 @@ router.post('/', async (req, res) => {
       reply = 'The AI coach is currently unavailable. Please check your GROQ_API_KEY configuration.';
     }
 
-    res.json({ reply });
+    res.json({ reply, sources: sources || [] });
   } catch (error) {
     console.error('Chat error:', error);
     res.status(500).json({ error: 'Chat failed' });

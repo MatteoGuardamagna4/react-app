@@ -1045,3 +1045,325 @@ body {
   color: var(--accent-warm);
   background: rgba(239, 68, 68, 0.06);
 }
+
+/* ===== RAG Badge ===== */
+.rag-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--primary);
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* ===== Source References ===== */
+.source-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+
+.source-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.source-chip {
+  font-size: 10px;
+  color: var(--primary-light);
+  background: rgba(108, 99, 255, 0.08);
+  border: 1px solid rgba(108, 99, 255, 0.2);
+  border-radius: 10px;
+  padding: 1px 8px;
+  cursor: default;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== PDF Upload ===== */
+.pdf-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pdf-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.pdf-upload-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary-light);
+  background: rgba(108, 99, 255, 0.06);
+}
+
+.upload-status {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.upload-status.ok {
+  color: var(--success);
+}
+
+.upload-status.err {
+  color: var(--accent-warm);
+}
+
+/* ===== Generate Button ===== */
+.generate-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--gradient);
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+  transition: all 0.2s ease;
+  margin-top: 20px;
+}
+
+.generate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+}
+
+.generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.generate-btn.refresh-btn {
+  margin-top: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  box-shadow: none;
+  font-size: 13px;
+  padding: 10px 16px;
+}
+
+.generate-btn.refresh-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===== Trends Tab ===== */
+.trends-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.trends-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  font-size: 13px;
+  color: var(--accent-warm);
+  text-align: center;
+}
+
+.retry-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-light);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.retry-btn:hover {
+  background: var(--bg-card-hover);
+}
+
+.trends-month {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.trends-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.trend-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  opacity: 0;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.trend-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.trend-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+}
+
+.trend-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.trend-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.trend-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.trend-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trend-section-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trend-section-toggle:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.trend-section-toggle.open {
+  color: var(--primary-light);
+  border-color: rgba(108, 99, 255, 0.3);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.trend-section-toggle svg {
+  transition: transform 0.2s;
+}
+
+.trend-section-toggle.open svg {
+  transform: rotate(180deg);
+}
+
+.trend-items {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.trend-item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(42, 42, 64, 0.5);
+}
+
+.trend-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.trend-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.trend-item-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.trend-item-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-right: 4px;
+}

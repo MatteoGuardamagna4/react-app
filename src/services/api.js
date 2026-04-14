@@ -18,8 +18,29 @@ export async function generatePlan(userData) {
   return post('/workout/generate', userData);
 }
 
-export async function sendChatMessage({ message, history, userData, clusterInfo, plan }) {
-  return post('/chat', { message, history, userData, clusterInfo, plan });
+export async function sendChatMessage({ message, history, userData, clusterInfo, plan, feedbackSummary }) {
+  return post('/chat', { message, history, userData, clusterInfo, plan, feedbackSummary });
+}
+
+export async function uploadPDF(file) {
+  const formData = new FormData();
+  formData.append('pdf', file);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  if (!res.ok) {
+    let msg = `Upload error: ${res.status}`;
+    try { const body = await res.json(); if (body.error) msg = body.error; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+export async function getUploadedFiles() {
+  const res = await fetch('/api/upload/files');
+  return res.json();
+}
+
+export async function generateTrends(userData) {
+  return post('/trends/generate', { userData });
 }
 
 export async function calculateRewards({ completedDays, plan, userData }) {

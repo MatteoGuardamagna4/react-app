@@ -6,6 +6,7 @@ import CoachTab from './components/Coach/CoachTab.jsx';
 import RewardsTab from './components/Rewards/RewardsTab.jsx';
 import InsightsTab from './components/Insights/InsightsTab.jsx';
 import NutritionTab from './components/Nutrition/NutritionTab.jsx';
+import TrendsTab from './components/Trends/TrendsTab.jsx';
 
 const TABS = [
   { id: 'quiz', label: 'Quiz', icon: (
@@ -44,6 +45,11 @@ const TABS = [
       <line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
   )},
+  { id: 'trends', label: 'Trends', icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+  )},
 ];
 
 function TabContent() {
@@ -55,6 +61,7 @@ function TabContent() {
     case 'coach': return <CoachTab />;
     case 'rewards': return <RewardsTab />;
     case 'insights': return <InsightsTab />;
+    case 'trends': return <TrendsTab />;
     default: return <QuizTab />;
   }
 }
