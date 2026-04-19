@@ -37,6 +37,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.use(express.static(path.join(__dirname, '../dist')));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
 app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
   const ragReady = await initializeRAG();
@@ -45,9 +50,4 @@ app.listen(PORT, async () => {
   } else {
     console.warn('RAG unavailable -- coach will work without knowledge retrieval');
   }
-});
-
-app.use(express.static(path.join(__dirname, '../dist')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
