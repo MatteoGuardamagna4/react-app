@@ -22,9 +22,10 @@ export async function sendChatMessage({ message, history, userData, clusterInfo,
   return post('/chat', { message, history, userData, clusterInfo, plan, feedbackSummary });
 }
 
-export async function uploadPDF(file) {
+export async function uploadPDF(file, url) {
   const formData = new FormData();
   formData.append('pdf', file);
+  if (url) formData.append('url', url);
   const res = await fetch('/api/upload', { method: 'POST', body: formData });
   if (!res.ok) {
     let msg = `Upload error: ${res.status}`;

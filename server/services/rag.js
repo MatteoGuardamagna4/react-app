@@ -34,31 +34,35 @@ export async function initializeRAG() {
 }
 
 export async function retrieveContext(query, topK = 5) {
-  if (!ragReady) {
-    return { contextText: '', sources: [] };
-  }
+  const empty = { chunks: [], sources: [] };
+  if (!ragReady) return empty;
 
   try {
     const queryEmbedding = await embedText(query);
-    if (!queryEmbedding) {
-      return { contextText: '', sources: [] };
-    }
+    if (!queryEmbedding) return empty;
 
     const results = await searchSimilar(queryEmbedding, topK);
-    if (results.length === 0) {
-      return { contextText: '', sources: [] };
+    if (results.length === 0) return empty;
+
+    const seen = new Map();
+    for (const r of results) {
+      if (r.source && !seen.has(r.source)) {
+        seen.set(r.source, { name: r.source, url: r.url || null });
+      }
     }
+    const sources = [...seen.values()];
 
-    const contextText = results
-      .map(r => `- ${r.text}`)
-      .join('\n\n');
+    const chunks = results.map(r => ({
+      text: r.text,
+      source: r.source,
+      url: r.url || null,
+      sourceIndex: sources.findIndex(s => s.name === r.source) + 1,
+    }));
 
-    const sources = [...new Set(results.map(r => r.source))];
-
-    return { contextText, sources };
+    return { chunks, sources };
   } catch (err) {
     console.error('RAG retrieval error:', err.message);
-    return { contextText: '', sources: [] };
+    return empty;
   }
 }
 
@@ -75,8 +79,13 @@ export async function searchKnowledge(query, topK = 5) {
 
     const results = await searchSimilar(queryEmbedding, topK);
     const contexts = results.map(r => r.text).filter(Boolean);
-    const sources = [...new Set(results.map(r => r.source).filter(Boolean))];
-    return { contexts, sources };
+    const seen = new Map();
+    for (const r of results) {
+      if (r.source && !seen.has(r.source)) {
+        seen.set(r.source, { name: r.source, url: r.url || null });
+      }
+    }
+    return { contexts, sources: [...seen.values()] };
   } catch (err) {
     console.error('RAG search error:', err.message);
     return { contexts: [], sources: [] };

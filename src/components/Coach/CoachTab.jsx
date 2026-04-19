@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { sendChatMessage, uploadPDF } from '../../services/api.js';
 import SourceReferences from './SourceReferences.jsx';
+import MessageContent from './MessageContent.jsx';
+import SourceViewer from './SourceViewer.jsx';
 
 function FeedbackButtons({ messageKey, feedback, onFeedback }) {
   const current = feedback[messageKey];
@@ -34,6 +36,7 @@ function FeedbackButtons({ messageKey, feedback, onFeedback }) {
 function PDFUploadButton() {
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState(null);
+  const [sourceUrl, setSourceUrl] = useState('');
   const fileRef = useRef(null);
 
   const handleUpload = async (e) => {
@@ -44,8 +47,9 @@ function PDFUploadButton() {
     setStatus(null);
 
     try {
-      const result = await uploadPDF(file);
+      const result = await uploadPDF(file, sourceUrl.trim() || undefined);
       setStatus({ ok: true, text: `Indexed "${result.filename}" (${result.chunks} chunks)` });
+      setSourceUrl('');
     } catch (err) {
       setStatus({ ok: false, text: err.message });
     } finally {
@@ -56,6 +60,14 @@ function PDFUploadButton() {
 
   return (
     <div className="pdf-upload-area">
+      <input
+        className="pdf-url-input"
+        type="url"
+        placeholder="Optional: source URL (e.g. https://...)"
+        value={sourceUrl}
+        onChange={e => setSourceUrl(e.target.value)}
+        disabled={uploading}
+      />
       <label className="pdf-upload-btn" title="Upload a PDF to the knowledge base">
         <input
           ref={fileRef}
@@ -129,7 +141,25 @@ export default function CoachTab() {
   const dispatch = useAppDispatch();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [viewer, setViewer] = useState({ open: false, source: null, chunks: [] });
   const messagesEndRef = useRef(null);
+
+  const openSourceForMessage = (msg, sourceIndex) => {
+    const sources = msg.sources || [];
+    const chunks = msg.chunks || [];
+    const raw = sources[sourceIndex - 1];
+    if (!raw) return;
+    const source = typeof raw === 'string'
+      ? { name: raw, url: null }
+      : { name: raw.name, url: raw.url || null };
+    const matching = chunks.filter(c => {
+      if (typeof c.sourceIndex === 'number') return c.sourceIndex === sourceIndex;
+      return c.source === source.name;
+    });
+    setViewer({ open: true, source, chunks: matching });
+  };
+
+  const closeViewer = () => setViewer(v => ({ ...v, open: false }));
 
   const activeSession = chatSessions.find(s => s.id === activeSessionId) || null;
   const messages = activeSession?.messages || [];
@@ -195,7 +225,7 @@ export default function CoachTab() {
         .filter(([k]) => k.startsWith(sessionFeedbackPrefix))
         .map(([k, v]) => `Message ${k.slice(sessionFeedbackPrefix.length)}: ${v}`)
         .join(', ');
-      const { reply, sources } = await sendChatMessage({
+      const { reply, sources, chunks } = await sendChatMessage({
         message: msg,
         history,
         userData,
@@ -205,7 +235,12 @@ export default function CoachTab() {
       });
       dispatch({
         type: 'ADD_CHAT_MESSAGE',
-        payload: { role: 'assistant', content: reply, sources: sources || [] },
+        payload: {
+          role: 'assistant',
+          content: reply,
+          sources: sources || [],
+          chunks: chunks || [],
+        },
       });
     } catch (e) {
       dispatch({
@@ -253,11 +288,21 @@ export default function CoachTab() {
           return (
             <div key={`${activeSessionId}-${i}`} className={`chat-bubble-wrapper ${msg.role}`}>
               <div className={`chat-bubble ${msg.role} fade-in`}>
-                {msg.content}
+                {msg.role === 'assistant'
+                  ? <MessageContent
+                      content={msg.content}
+                      sources={msg.sources}
+                      chunks={msg.chunks}
+                      onOpenSource={(n) => openSourceForMessage(msg, n)}
+                    />
+                  : msg.content}
               </div>
               {msg.role === 'assistant' && (
                 <>
-                  <SourceReferences sources={msg.sources} />
+                  <SourceReferences
+                    sources={msg.sources}
+                    onOpenSource={(n) => openSourceForMessage(msg, n)}
+                  />
                   <FeedbackButtons
                     messageKey={msgKey}
                     feedback={feedback}
@@ -275,6 +320,13 @@ export default function CoachTab() {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      <SourceViewer
+        open={viewer.open}
+        source={viewer.source}
+        chunks={viewer.chunks}
+        onClose={closeViewer}
+      />
 
       <div className="chat-input-area">
         <input

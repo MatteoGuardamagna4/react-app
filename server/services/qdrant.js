@@ -46,6 +46,7 @@ export async function upsertChunks(chunks, embeddings) {
     payload: {
       source: chunk.source,
       text: chunk.text,
+      ...(chunk.url ? { url: chunk.url } : {}),
     },
   }));
 
@@ -72,6 +73,7 @@ export async function searchSimilar(queryEmbedding, topK = 5) {
     return results.map(r => ({
       text: r.payload.text,
       source: r.payload.source,
+      url: r.payload.url || null,
       score: r.score,
     }));
   } catch (err) {

@@ -50,6 +50,7 @@ router.post('/', upload.single('pdf'), async (req, res) => {
 
     const filePath = req.file.path;
     const fileName = req.file.originalname;
+    const sourceUrl = (req.body?.url || '').trim() || null;
 
     // Extract text from PDF (pdf-parse v2 class API)
     const dataBuffer = fs.readFileSync(filePath);
@@ -71,6 +72,7 @@ router.post('/', upload.single('pdf'), async (req, res) => {
       id: uuidv5(`${sourceId}:${i}`),
       text: chunkContent,
       source: sourceId,
+      url: sourceUrl,
     }));
 
     // Ensure Qdrant collection

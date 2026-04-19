@@ -18,6 +18,8 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 app.use('/api/workout', workoutRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/rewards', rewardsRoutes);
@@ -44,8 +46,6 @@ app.listen(PORT, async () => {
     console.warn('RAG unavailable -- coach will work without knowledge retrieval');
   }
 });
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(express.static(path.join(__dirname, '../dist')));
 app.get('*', (req, res) => {
