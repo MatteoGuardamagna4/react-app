@@ -44,9 +44,8 @@ export async function upsertChunks(chunks, embeddings) {
     id: chunk.id,
     vector: embeddings[i],
     payload: {
-      content: chunk.content,
       source: chunk.source,
-      section: chunk.section,
+      text: chunk.text,
     },
   }));
 
@@ -59,7 +58,7 @@ export async function upsertChunks(chunks, embeddings) {
   return true;
 }
 
-export async function searchSimilar(queryEmbedding, topK = 3) {
+export async function searchSimilar(queryEmbedding, topK = 5) {
   const qdrant = getClient();
   if (!qdrant) return [];
 
@@ -71,9 +70,8 @@ export async function searchSimilar(queryEmbedding, topK = 3) {
     });
 
     return results.map(r => ({
-      content: r.payload.content,
+      text: r.payload.text,
       source: r.payload.source,
-      section: r.payload.section,
       score: r.score,
     }));
   } catch (err) {

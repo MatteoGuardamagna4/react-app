@@ -3,13 +3,13 @@ import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { sendChatMessage, uploadPDF } from '../../services/api.js';
 import SourceReferences from './SourceReferences.jsx';
 
-function FeedbackButtons({ messageIndex, feedback, onFeedback }) {
-  const current = feedback[`chat_${messageIndex}`];
+function FeedbackButtons({ messageKey, feedback, onFeedback }) {
+  const current = feedback[messageKey];
   return (
     <div className="feedback-row">
       <button
         className={`feedback-btn ${current === 'up' ? 'active-up' : ''}`}
-        onClick={() => onFeedback(messageIndex, current === 'up' ? null : 'up')}
+        onClick={() => onFeedback(messageKey, current === 'up' ? null : 'up')}
         title="Helpful"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -19,7 +19,7 @@ function FeedbackButtons({ messageIndex, feedback, onFeedback }) {
       </button>
       <button
         className={`feedback-btn ${current === 'down' ? 'active-down' : ''}`}
-        onClick={() => onFeedback(messageIndex, current === 'down' ? null : 'down')}
+        onClick={() => onFeedback(messageKey, current === 'down' ? null : 'down')}
         title="Not helpful"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -81,16 +81,62 @@ function PDFUploadButton() {
   );
 }
 
+function SessionPicker({ sessions, activeId, onSwitch, onNew, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const active = sessions.find(s => s.id === activeId);
+  const ordered = [...sessions].sort((a, b) => b.createdAt - a.createdAt);
+
+  return (
+    <div className="session-picker">
+      <button className="session-current" onClick={() => setOpen(o => !o)}>
+        <span className="session-current-label">{active ? active.title : 'New chat'}</span>
+        <span className="session-caret">{open ? '\u25B4' : '\u25BE'}</span>
+      </button>
+      <button className="session-new-btn" onClick={() => { onNew(); setOpen(false); }} title="Start a new chat">
+        + New chat
+      </button>
+      {open && (
+        <div className="session-dropdown">
+          {ordered.length === 0 && (
+            <div className="session-empty">No sessions yet</div>
+          )}
+          {ordered.map(s => (
+            <div key={s.id} className={`session-row ${s.id === activeId ? 'active' : ''}`}>
+              <button
+                className="session-row-title"
+                onClick={() => { onSwitch(s.id); setOpen(false); }}
+                title={s.title}
+              >
+                {s.title}
+              </button>
+              <button
+                className="session-delete"
+                onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                title="Delete session"
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CoachTab() {
-  const { chatMessages, userData, clusterInfo, workoutPlan, quizCompleted, feedback } = useAppState();
+  const { chatSessions, activeSessionId, userData, clusterInfo, workoutPlan, quizCompleted, feedback } = useAppState();
   const dispatch = useAppDispatch();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
+  const activeSession = chatSessions.find(s => s.id === activeSessionId) || null;
+  const messages = activeSession?.messages || [];
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  }, [messages.length, activeSessionId]);
 
   if (!quizCompleted || !workoutPlan) {
     return (
@@ -105,23 +151,49 @@ export default function CoachTab() {
     );
   }
 
-  const handleFeedback = (messageIndex, value) => {
-    dispatch({ type: 'SET_FEEDBACK', payload: { key: `chat_${messageIndex}`, value } });
+  const handleFeedback = (messageKey, value) => {
+    dispatch({ type: 'SET_FEEDBACK', payload: { key: messageKey, value } });
+  };
+
+  const handleNewSession = () => {
+    dispatch({ type: 'NEW_SESSION' });
+  };
+
+  const handleSwitchSession = (id) => {
+    dispatch({ type: 'SWITCH_SESSION', payload: id });
+  };
+
+  const handleDeleteSession = (id) => {
+    dispatch({ type: 'DELETE_SESSION', payload: id });
   };
 
   const handleSend = async () => {
     const msg = input.trim();
     if (!msg || sending) return;
 
+    const isFirstMessage = messages.length === 0;
+    const currentTitle = activeSession?.title;
+    const currentSessionId = activeSessionId;
+
     dispatch({ type: 'ADD_CHAT_MESSAGE', payload: { role: 'user', content: msg } });
+
+    // Auto-rename session from first user message
+    if (isFirstMessage && currentSessionId && currentTitle === 'New chat') {
+      dispatch({
+        type: 'RENAME_SESSION',
+        payload: { id: currentSessionId, title: msg.slice(0, 40) },
+      });
+    }
+
     setInput('');
     setSending(true);
 
     try {
-      const history = chatMessages.map(m => ({ role: m.role, content: m.content }));
+      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      const sessionFeedbackPrefix = `chat_${currentSessionId || 'none'}_`;
       const feedbackSummary = Object.entries(feedback)
-        .filter(([k]) => k.startsWith('chat_'))
-        .map(([k, v]) => `Message ${k.split('_')[1]}: ${v}`)
+        .filter(([k]) => k.startsWith(sessionFeedbackPrefix))
+        .map(([k, v]) => `Message ${k.slice(sessionFeedbackPrefix.length)}: ${v}`)
         .join(', ');
       const { reply, sources } = await sendChatMessage({
         message: msg,
@@ -160,32 +232,42 @@ export default function CoachTab() {
           <span className="rag-badge" title="Retrieval-Augmented Generation enabled">RAG</span>
         </div>
         <p className="tab-subtitle">Ask about your plan, nutrition, recovery, or modifications.</p>
+        <SessionPicker
+          sessions={chatSessions}
+          activeId={activeSessionId}
+          onSwitch={handleSwitchSession}
+          onNew={handleNewSession}
+          onDelete={handleDeleteSession}
+        />
         <PDFUploadButton />
       </div>
 
       <div className="chat-messages">
-        {chatMessages.length === 0 && (
+        {messages.length === 0 && (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, marginTop: 40 }}>
             Start a conversation with your AI fitness coach.
           </div>
         )}
-        {chatMessages.map((msg, i) => (
-          <div key={i} className={`chat-bubble-wrapper ${msg.role}`}>
-            <div className={`chat-bubble ${msg.role} fade-in`}>
-              {msg.content}
+        {messages.map((msg, i) => {
+          const msgKey = `chat_${activeSessionId}_${i}`;
+          return (
+            <div key={`${activeSessionId}-${i}`} className={`chat-bubble-wrapper ${msg.role}`}>
+              <div className={`chat-bubble ${msg.role} fade-in`}>
+                {msg.content}
+              </div>
+              {msg.role === 'assistant' && (
+                <>
+                  <SourceReferences sources={msg.sources} />
+                  <FeedbackButtons
+                    messageKey={msgKey}
+                    feedback={feedback}
+                    onFeedback={handleFeedback}
+                  />
+                </>
+              )}
             </div>
-            {msg.role === 'assistant' && (
-              <>
-                <SourceReferences sources={msg.sources} />
-                <FeedbackButtons
-                  messageIndex={i}
-                  feedback={feedback}
-                  onFeedback={handleFeedback}
-                />
-              </>
-            )}
-          </div>
-        ))}
+          );
+        })}
         {sending && (
           <div className="chat-bubble assistant" style={{ opacity: 0.6 }}>
             Thinking...

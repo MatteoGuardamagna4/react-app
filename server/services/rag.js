@@ -33,7 +33,7 @@ export async function initializeRAG() {
   }
 }
 
-export async function retrieveContext(query, topK = 3) {
+export async function retrieveContext(query, topK = 5) {
   if (!ragReady) {
     return { contextText: '', sources: [] };
   }
@@ -50,19 +50,36 @@ export async function retrieveContext(query, topK = 3) {
     }
 
     const contextText = results
-      .map(r => `[Source: ${r.source} > ${r.section}]\n${r.content}`)
+      .map(r => `- ${r.text}`)
       .join('\n\n');
 
-    const sources = results.map(r => ({
-      source: r.source,
-      section: r.section,
-      score: r.score,
-    }));
+    const sources = [...new Set(results.map(r => r.source))];
 
     return { contextText, sources };
   } catch (err) {
     console.error('RAG retrieval error:', err.message);
     return { contextText: '', sources: [] };
+  }
+}
+
+export async function searchKnowledge(query, topK = 5) {
+  if (!ragReady) {
+    return { contexts: [], sources: [] };
+  }
+
+  try {
+    const queryEmbedding = await embedText(query);
+    if (!queryEmbedding) {
+      return { contexts: [], sources: [] };
+    }
+
+    const results = await searchSimilar(queryEmbedding, topK);
+    const contexts = results.map(r => r.text).filter(Boolean);
+    const sources = [...new Set(results.map(r => r.source).filter(Boolean))];
+    return { contexts, sources };
+  } catch (err) {
+    console.error('RAG search error:', err.message);
+    return { contexts: [], sources: [] };
   }
 }
 

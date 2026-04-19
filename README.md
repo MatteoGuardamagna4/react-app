@@ -6,7 +6,9 @@
 2. Create a `.env` file in the root:
 ```
 GROQ_API_KEY=your_key_here
-GEMINI_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
+QDRANT_URL=your_qdrant_cluster_url
+QDRANT_API_KEY=your_qdrant_api_key
 ```
 3. **Run the app**
 ```
@@ -41,24 +43,25 @@ graph LR
     R1["/api/workout/generate"]
     R2["/api/chat"]
     R3["/api/rewards/calculate"]
-    R4["/api/plots/generate"]
+    R4["/api/rag/query"]
   end
 
   subgraph Services ["Backend Services"]
     P["preprocessing.js\n(rule-based clustering)"]
     G["groq.js\n(Llama 3.3 70B)"]
-    GM["gemini.js\n(model chain)"]
+    RAG["rag.js + qdrant.js\n(OpenAI embeddings + vector search)"]
   end
 
   A -- "user profile" --> R1
   C -- "message + history" --> R2
   E -- "completedDays + plan" --> R3
-  E -- "stats + plan" --> R4
+  C -- "knowledge query" --> R4
 
   R1 --> P --> G
   R2 --> G
+  R2 --> RAG
   R3 --> G
-  R4 --> GM
+  R4 --> RAG
 ```
 
 ### Data Flow
@@ -71,10 +74,9 @@ flowchart TD
   PLAN -->|completed days| COACH["Coach Tab\n(multi-turn chat)"]
   PLAN -->|completed days| INS["Insights Tab\n(4 client-side SVGs)"]
   PLAN -->|completion stats| REW["Rewards Tab\n(XP + achievements)"]
-  REW -->|stats + plan| GEM{"Gemini API\navailable?"}
-  GEM -->|Yes| AI_CHARTS["AI-Generated SVG Charts\n(bar, donut, progress)"]
-  GEM -->|No| MOCK["Mock SVG Charts\n(same geometry, labeled)"]
+  REW -->|stats + plan| CHARTS["Performance Charts\n(bar, donut, progress - client-side SVG)"]
   COACH -->|message| LLM1
+  COACH -->|retrieval| VS["Qdrant\n(vector search)"]
   REW -->|stats| LLM1
 ```
 
@@ -96,12 +98,17 @@ graph TD
     IDX["index.js"] --> WR["routes/workout.js"]
     IDX --> CR["routes/chat.js"]
     IDX --> RR["routes/rewards.js"]
-    IDX --> PR["routes/plots.js"]
+    IDX --> RAGR["routes/rag.js"]
+    IDX --> UP["routes/upload.js"]
     WR --> PRE["services/preprocessing.js"]
     WR --> GRQ["services/groq.js"]
     CR --> GRQ
+    CR --> RAGS["services/rag.js"]
     RR --> GRQ
-    PR --> GEM["services/gemini.js"]
+    RAGR --> RAGS
+    UP --> RAGS
+    RAGS --> OAI["services/openai.js"]
+    RAGS --> QD["services/qdrant.js"]
   end
 ```
 
@@ -115,12 +122,12 @@ A lightweight Express server (ESM) running on port 3001. Four route modules hand
 
 ### LLM Integration
 
-Two LLM providers serve different purposes:
+Two model providers serve different purposes:
 - **Groq** (Llama 3.3 70B Versatile) handles text generation: workout plans, coaching chat, and reward narratives. The Groq service includes mock fallbacks so the app remains functional without an API key.
-- **Google Gemini** generates SVG chart visualizations in the Rewards tab. The service walks a model chain (2.5 Flash -> 2.5 Pro -> 2.0 Flash -> 2.0 Flash Lite), falling through on rate-limit errors. When all models are exhausted, the server returns pre-built mock SVG charts rendered from the same computed geometry, clearly labeled as fallback data.
+- **OpenAI** powers the RAG pipeline: `text-embedding-3-large` for embeddings and `gpt-4o-mini` for retrieval-augmented answer synthesis. Vectors are stored in **Qdrant**, a cloud-hosted vector database. Users can upload PDFs (chunked, embedded, and indexed) and the Coach tab silently injects retrieved context into replies.
 
 ### Key Design Decisions
 
-- **No database**: all state lives in the browser (React Context). Refreshing the page resets everything. This keeps the prototype lightweight and avoids backend session management.
-- **Pre-computed chart geometry**: the plots route calculates exact pixel coordinates for bars, arcs, and progress bars server-side, then asks Gemini only for decorative styling. This produces reliable chart layouts regardless of LLM variability.
-- **Mock fallbacks everywhere**: every LLM-dependent feature degrades gracefully. The app is fully usable without any API keys, making it easy to demo and develop offline.
+- **No database for app state**: user quiz, plan, chat sessions, and rewards all live in the browser (localStorage-backed React Context). Only knowledge vectors persist server-side in Qdrant.
+- **Client-side charts**: all Rewards and Insights visualizations are pure JSX SVG built from pre-computed geometry. No server-side image generation, no LLM variability in the visual layer.
+- **Mock fallbacks where it matters**: every Groq-dependent feature degrades gracefully when the key is missing, making it easy to demo and develop offline.

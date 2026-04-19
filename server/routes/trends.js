@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { chatWithGPT4oMini, isOpenAIAvailable } from '../services/openai.js';
+import { ingestTrendKnowledge } from '../services/trendIngest.js';
 
 const router = Router();
 
@@ -61,6 +62,12 @@ Make the content specific, practical, and grounded in current fitness culture.`;
     if (!result) {
       return res.status(500).json({ error: 'Failed to generate trends' });
     }
+
+    // Fire-and-forget: synthesize 5 knowledge docs from the discovered trends
+    // and persist them to Qdrant. Response is not blocked.
+    ingestTrendKnowledge(result).catch(err =>
+      console.error('[trends] background ingest failed:', err.message)
+    );
 
     res.json(result);
   } catch (err) {

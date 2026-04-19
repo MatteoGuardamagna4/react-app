@@ -3,14 +3,12 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 import { embedTexts } from '../services/openai.js';
 import { ensureCollection, upsertChunks } from '../services/qdrant.js';
 import { isOpenAIAvailable } from '../services/openai.js';
 import { isQdrantAvailable } from '../services/qdrant.js';
-import crypto from 'crypto';
+import { chunkText, uuidv5 } from '../services/chunker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(__dirname, '../../scripts/pdfs');
@@ -40,30 +38,6 @@ const upload = multer({
 
 const router = Router();
 
-// Sentence-level chunking for uploaded PDFs
-function chunkText(text, maxChars = 1500, overlap = 200) {
-  const sentences = text.replace(/\n+/g, ' ').split(/(?<=[.!?])\s+/);
-  const chunks = [];
-  let current = '';
-
-  for (const sentence of sentences) {
-    if (current.length + sentence.length > maxChars && current.length > 0) {
-      chunks.push(current.trim());
-      // keep overlap from the end of the previous chunk
-      const words = current.split(' ');
-      const overlapWords = words.slice(-Math.floor(overlap / 5));
-      current = overlapWords.join(' ') + ' ' + sentence;
-    } else {
-      current += (current ? ' ' : '') + sentence;
-    }
-  }
-  if (current.trim().length > 50) {
-    chunks.push(current.trim());
-  }
-
-  return chunks;
-}
-
 router.post('/', upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
@@ -77,9 +51,11 @@ router.post('/', upload.single('pdf'), async (req, res) => {
     const filePath = req.file.path;
     const fileName = req.file.originalname;
 
-    // Extract text from PDF
+    // Extract text from PDF (pdf-parse v2 class API)
     const dataBuffer = fs.readFileSync(filePath);
-    const pdfData = await pdfParse(dataBuffer);
+    const parser = new PDFParse({ data: dataBuffer });
+    const pdfData = await parser.getText();
+    await parser.destroy();
     const text = pdfData.text;
 
     if (!text || text.trim().length < 100) {
@@ -88,29 +64,14 @@ router.post('/', upload.single('pdf'), async (req, res) => {
 
     // Chunk the text
     const textChunks = chunkText(text);
+    const sourceId = fileName;
 
-    // Build chunk objects with IDs
-    const chunks = textChunks.map((content, i) => {
-      const id = crypto.createHash('md5')
-        .update(`${fileName}:${i}:${content.slice(0, 100)}`)
-        .digest('hex');
-
-      // Convert hex hash to a UUID-like format for Qdrant
-      const uuid = [
-        id.slice(0, 8),
-        id.slice(8, 12),
-        id.slice(12, 16),
-        id.slice(16, 20),
-        id.slice(20, 32),
-      ].join('-');
-
-      return {
-        id: uuid,
-        content,
-        source: path.parse(fileName).name,
-        section: `chunk_${i}`,
-      };
-    });
+    // Build chunk objects with deterministic UUID v5 IDs (mirrors Python uuid5)
+    const chunks = textChunks.map((chunkContent, i) => ({
+      id: uuidv5(`${sourceId}:${i}`),
+      text: chunkContent,
+      source: sourceId,
+    }));
 
     // Ensure Qdrant collection
     await ensureCollection();

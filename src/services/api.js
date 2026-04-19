@@ -47,16 +47,16 @@ export async function calculateRewards({ completedDays, plan, userData }) {
   return post('/rewards/calculate', { completedDays, plan, userData });
 }
 
-export async function generatePlots({ stats, plan, userData, completedDays }) {
-  return post('/plots/generate', { stats, plan, userData, completedDays });
-}
-
 export async function getAlternatives({ exerciseName, dayFocus, userData }) {
   return post('/workout/alternatives', { exerciseName, dayFocus, userData });
 }
 
 export async function generateNutrition({ userData, plan, completedDays }) {
   return post('/nutrition/generate', { userData, plan, completedDays });
+}
+
+export async function queryRAG(question, topK = 5) {
+  return post('/rag/query', { question, top_k: topK });
 }
 
 export async function checkHealth() {
