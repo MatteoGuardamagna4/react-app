@@ -1,15 +1,31 @@
 import { Router } from 'express';
-import { callGroq } from '../services/groq.js';
+import { callOpenAI } from '../services/openai.js';
 
 const router = Router();
 
-function buildNutritionPrompt(userData, plan) {
+function buildNutritionPrompt(userData, plan, exerciseFeedback, mealFeedback) {
   const planSummary = (plan?.days || []).map(d => {
     const exCount = (d.exercises || []).length;
     return `${d.day}: ${d.focus} (${exCount} exercises)`;
   }).join('\n');
 
   const expLabels = { 1: 'Beginner', 2: 'Intermediate', 3: 'Expert' };
+
+  const exerciseSection = (exerciseFeedback?.liked?.length || exerciseFeedback?.disliked?.length)
+    ? `\n\nUSER EXERCISE PREFERENCES (soft guidance):
+- Liked exercises: ${(exerciseFeedback.liked || []).join(', ') || 'none'}
+- Disliked exercises: ${(exerciseFeedback.disliked || []).join(', ') || 'none'}
+Lean the meal plan (pre/post-workout fueling, portion timing, calorie density, protein distribution) toward the activities the user enjoys. For example, if the user likes high-intensity work, emphasize fast carbs pre-workout and recovery protein post-workout. Reference the liked activities in meal descriptions when relevant. Do not over-fuel for sessions the user tends to skip.`
+    : '';
+
+  const mealSection = (mealFeedback?.liked?.length || mealFeedback?.disliked?.length)
+    ? `\n\nUSER MEAL PREFERENCES FROM PREVIOUS MEAL PLAN (soft guidance, not hard rules):
+- Liked meals: ${(mealFeedback.liked || []).join(', ') || 'none'}
+- Disliked meals: ${(mealFeedback.disliked || []).join(', ') || 'none'}
+Keep the style and food types of liked meals in the new plan (similar ingredients, cuisine, preparation style, macro profile). Avoid repeating the style, ingredients, or cuisine of disliked meals. You may still propose a similar-sounding meal if the macro targets demand it, but vary the recipe meaningfully.`
+    : '';
+
+  const feedbackSection = exerciseSection + mealSection;
 
   return `You are a professional sports nutritionist. Generate a personalized daily meal plan aligned with the user's workout schedule and goals.
 
@@ -23,7 +39,7 @@ USER PROFILE:
 - Daily water intake: ${userData.water_intake}L
 
 WORKOUT PLAN:
-${planSummary}
+${planSummary}${feedbackSection}
 
 Return ONLY valid JSON in this exact format:
 {
@@ -121,14 +137,14 @@ function mockNutrition(userData) {
 
 router.post('/generate', async (req, res) => {
   try {
-    const { userData, plan } = req.body;
-    const prompt = buildNutritionPrompt(userData, plan);
+    const { userData, plan, exerciseFeedback, mealFeedback } = req.body;
+    const prompt = buildNutritionPrompt(userData, plan, exerciseFeedback, mealFeedback);
 
     let nutrition;
     try {
-      nutrition = await callGroq({ prompt, temperature: 0.7, maxTokens: 1500 });
+      nutrition = await callOpenAI({ prompt, temperature: 0.7, maxTokens: 1500 });
     } catch (e) {
-      console.error('Nutrition Groq error:', e.message);
+      console.error('Nutrition OpenAI error:', e.message);
       nutrition = null;
     }
 

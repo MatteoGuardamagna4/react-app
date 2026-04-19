@@ -40,6 +40,26 @@ export async function embedTexts(texts) {
   return allEmbeddings;
 }
 
+export async function callOpenAI({ prompt, messages, jsonMode = true, temperature = 0.7, maxTokens = 2000 }) {
+  const openai = getClient();
+  if (!openai) return null;
+
+  const msgs = messages || [{ role: 'user', content: prompt }];
+  const params = {
+    model: 'gpt-4o-mini',
+    messages: msgs,
+    temperature,
+    max_tokens: maxTokens,
+  };
+  if (jsonMode) {
+    params.response_format = { type: 'json_object' };
+  }
+
+  const response = await openai.chat.completions.create(params);
+  const content = response.choices[0].message.content;
+  return jsonMode ? JSON.parse(content) : content;
+}
+
 export async function chatWithGPT4oMini({ messages, jsonMode = false, temperature = 0.7, maxTokens = 2000 }) {
   const openai = getClient();
   if (!openai) return null;

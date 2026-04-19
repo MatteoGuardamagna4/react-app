@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { generateNutrition } from '../../services/api.js';
+import { summarizeExerciseFeedback, summarizeMealFeedback, mealFeedbackKey } from '../../utils/feedback.js';
 import MacroRing from './MacroRing.jsx';
 
-function MealCard({ meal, index }) {
+function MealCard({ meal, index, feedback, onFeedback }) {
   const [expanded, setExpanded] = useState(false);
+  const fbKey = mealFeedbackKey(meal.name);
+  const current = feedback[fbKey];
 
   return (
     <div
@@ -31,15 +34,39 @@ function MealCard({ meal, index }) {
           </ul>
         </div>
       )}
-      <button className="expand-toggle" onClick={() => setExpanded(!expanded)}>
-        {expanded ? 'Less' : 'Details'} {expanded ? '[-]' : '[+]'}
-      </button>
+      <div className="meal-footer-row">
+        <button className="expand-toggle" onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Less' : 'Details'} {expanded ? '[-]' : '[+]'}
+        </button>
+        <div className="feedback-row compact">
+          <button
+            className={`feedback-btn small ${current === 'up' ? 'active-up' : ''}`}
+            onClick={e => { e.stopPropagation(); onFeedback(fbKey, current === 'up' ? null : 'up'); }}
+            aria-label="Like meal"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+            </svg>
+          </button>
+          <button
+            className={`feedback-btn small ${current === 'down' ? 'active-down' : ''}`}
+            onClick={e => { e.stopPropagation(); onFeedback(fbKey, current === 'down' ? null : 'down'); }}
+            aria-label="Dislike meal"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/>
+              <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function NutritionTab() {
-  const { workoutPlan, userData, quizCompleted, nutritionPlan, completedDays, loading } = useAppState();
+  const { workoutPlan, userData, quizCompleted, nutritionPlan, completedDays, loading, feedback } = useAppState();
   const dispatch = useAppDispatch();
   const [error, setError] = useState(null);
   const isLoading = loading.nutrition;
@@ -61,7 +88,9 @@ export default function NutritionTab() {
     dispatch({ type: 'SET_LOADING', payload: { key: 'nutrition', value: true } });
     setError(null);
     try {
-      const result = await generateNutrition({ userData, plan: workoutPlan, completedDays });
+      const exerciseFeedback = summarizeExerciseFeedback(workoutPlan, feedback);
+      const mealFeedback = summarizeMealFeedback(nutritionPlan, feedback);
+      const result = await generateNutrition({ userData, plan: workoutPlan, completedDays, exerciseFeedback, mealFeedback });
       dispatch({ type: 'SET_NUTRITION', payload: result });
     } catch (e) {
       setError(e.message);
@@ -139,7 +168,13 @@ export default function NutritionTab() {
 
       {/* Meals */}
       {(meals || []).map((meal, i) => (
-        <MealCard key={i} meal={meal} index={i} />
+        <MealCard
+          key={i}
+          meal={meal}
+          index={i}
+          feedback={feedback}
+          onFeedback={(key, value) => dispatch({ type: 'SET_FEEDBACK', payload: { key, value } })}
+        />
       ))}
 
       {/* Hydration */}

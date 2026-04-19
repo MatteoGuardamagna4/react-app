@@ -14,8 +14,8 @@ async function post(path, body) {
   return res.json();
 }
 
-export async function generatePlan(userData) {
-  return post('/workout/generate', userData);
+export async function generatePlan(userData, exerciseFeedback) {
+  return post('/workout/generate', { ...userData, exerciseFeedback });
 }
 
 export async function sendChatMessage({ message, history, userData, clusterInfo, plan, feedbackSummary }) {
@@ -52,8 +52,8 @@ export async function getAlternatives({ exerciseName, dayFocus, userData }) {
   return post('/workout/alternatives', { exerciseName, dayFocus, userData });
 }
 
-export async function generateNutrition({ userData, plan, completedDays }) {
-  return post('/nutrition/generate', { userData, plan, completedDays });
+export async function generateNutrition({ userData, plan, completedDays, exerciseFeedback, mealFeedback }) {
+  return post('/nutrition/generate', { userData, plan, completedDays, exerciseFeedback, mealFeedback });
 }
 
 export async function queryRAG(question, topK = 5) {

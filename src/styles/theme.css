@@ -670,6 +670,14 @@ body {
   margin-top: 4px;
 }
 
+.meal-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 /* Tips */
 .tip-item {
   display: flex;

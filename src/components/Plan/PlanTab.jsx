@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { generatePlan, getAlternatives } from '../../services/api.js';
+import { summarizeExerciseFeedback } from '../../utils/feedback.js';
 
 function ExerciseItem({ exercise, dayName, exerciseIndex, feedback, onFeedback, onSwap }) {
   const [alts, setAlts] = useState(null);
@@ -160,7 +161,8 @@ export default function PlanTab() {
     dispatch({ type: 'SET_LOADING', payload: { key: 'plan', value: true } });
     setError(null);
     try {
-      const result = await generatePlan(userData);
+      const exerciseFeedback = summarizeExerciseFeedback(workoutPlan, feedback);
+      const result = await generatePlan(userData, exerciseFeedback);
       dispatch({ type: 'SET_PLAN', payload: result });
     } catch (e) {
       setError(e.message);

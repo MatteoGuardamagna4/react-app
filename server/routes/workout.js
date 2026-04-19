@@ -4,7 +4,14 @@ import { preprocessUserInput, assignCluster, getClusterSummary } from '../servic
 
 const router = Router();
 
-function buildPrompt(userData, clusterInfo) {
+function buildPrompt(userData, clusterInfo, exerciseFeedback) {
+  const feedbackSection = (exerciseFeedback?.liked?.length || exerciseFeedback?.disliked?.length)
+    ? `\n\nUSER EXERCISE PREFERENCES (soft guidance, not hard rules):
+- Liked: ${(exerciseFeedback.liked || []).join(', ') || 'none'}
+- Disliked: ${(exerciseFeedback.disliked || []).join(', ') || 'none'}
+Try to favor the liked ones and avoid the disliked ones. You may still include a disliked exercise if it is essential to the program and you explain it well.`
+    : '';
+
   return `You are a professional fitness coach. Generate a personalized weekly workout plan (Monday to Sunday) in JSON format.
 
 User Profile:
@@ -21,7 +28,7 @@ User Profile:
 Similar Users Profile (from data analysis):
 - Average calories burned per session: ${Math.round(clusterInfo.avg_calories)}
 - Average heart rate during workout: ${Math.round(clusterInfo.avg_bpm)} BPM
-- Cluster size: ${clusterInfo.cluster_size} similar users
+- Cluster size: ${clusterInfo.cluster_size} similar users${feedbackSection}
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -94,12 +101,12 @@ function mockPlan(userData) {
 
 router.post('/generate', async (req, res) => {
   try {
-    const userData = req.body;
+    const { exerciseFeedback, ...userData } = req.body;
     const features = preprocessUserInput(userData);
     const cluster = assignCluster(features);
     const clusterInfo = getClusterSummary(cluster);
 
-    const prompt = buildPrompt(userData, clusterInfo);
+    const prompt = buildPrompt(userData, clusterInfo, exerciseFeedback);
     let plan;
     try {
       plan = await callGroq({ prompt });
