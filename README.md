@@ -1,3 +1,13 @@
+---
+title: Smart Workout Recommender
+emoji: 🏋️
+colorFrom: purple
+colorTo: pink
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Smart Workout Recommender
 
 ## Setup
