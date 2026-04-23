@@ -26,7 +26,7 @@ QDRANT_API_KEY=your_qdrant_api_key
 ```
 
  #### Option 2 -- Hosted prototype (LLM features disabled)
-[View on Hugging Face Spaces](https://huggingface.co/spaces/MatteoG4444/smart-workout-recommender_prototype)
+[View on Hugging Face Spaces](https://huggingface.co/spaces/MatteoG4444/v3-wtk-recommender)
 
 ---
 
