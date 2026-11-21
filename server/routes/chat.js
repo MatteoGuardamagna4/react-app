@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { callGroq } from '../services/groq.js';
+import { retrieveContext } from '../services/rag.js';
 
 const router = Router();
 
-function buildSystemPrompt(userData, clusterInfo, plan) {
+function buildSystemPrompt(userData, clusterInfo, plan, ragBlock) {
   let planSummary = 'No plan generated yet.';
   if (plan && plan.days) {
     planSummary = plan.days.map(day => {
@@ -42,14 +43,47 @@ INSTRUCTIONS:
 - Be concise but helpful. Use the profile data to personalize every response.
 - If the user asks something outside fitness, politely redirect.
 - When suggesting exercise alternatives, consider their equipment and injuries.
-- Keep responses under 300 words unless the user asks for detail.`;
+- Keep responses under 300 words unless the user asks for detail.
+- The user can rate your responses with thumbs up or down. If feedback is provided below, adjust your style accordingly -- give more of what they liked and less of what they disliked.
+${ragBlock || ''}`;
+}
+
+function buildRagBlock(chunks, sources) {
+  if (!chunks || chunks.length === 0) return '';
+
+  const sourceList = sources
+    .map((s, i) => `[${i + 1}] ${s.name}`)
+    .join('\n');
+
+  const contextText = chunks
+    .map(c => `[${c.sourceIndex}] ${c.text}`)
+    .join('\n\n');
+
+  return `
+AVAILABLE SOURCES (cite inline using [n]):
+${sourceList}
+
+RELEVANT FITNESS KNOWLEDGE (each chunk is prefixed with its source number):
+${contextText}
+
+CITATION RULES:
+- When a statement is grounded in a source above, append the matching marker, e.g. "Protein helps recovery [1]."
+- Use only the numbers listed in AVAILABLE SOURCES. Never invent a source number.
+- Do not say "according to my knowledge base" -- weave the information into your own expertise and let the [n] markers do the attribution.`;
 }
 
 router.post('/', async (req, res) => {
   try {
-    const { message, history, userData, clusterInfo, plan } = req.body;
+    const { message, history, userData, clusterInfo, plan, feedbackSummary } = req.body;
 
-    const systemPrompt = buildSystemPrompt(userData, clusterInfo, plan);
+    // RAG retrieval -- get relevant knowledge chunks
+    const { chunks, sources } = await retrieveContext(message);
+    const ragBlock = buildRagBlock(chunks, sources);
+
+    let systemPrompt = buildSystemPrompt(userData, clusterInfo, plan, ragBlock);
+    if (feedbackSummary) {
+      systemPrompt += `\n\nUSER FEEDBACK ON PAST RESPONSES:\n${feedbackSummary}`;
+    }
     const messages = [
       { role: 'system', content: systemPrompt },
       ...(history || []),
@@ -68,7 +102,7 @@ router.post('/', async (req, res) => {
       reply = 'The AI coach is currently unavailable. Please check your GROQ_API_KEY configuration.';
     }
 
-    res.json({ reply });
+    res.json({ reply, sources: sources || [], chunks: chunks || [] });
   } catch (error) {
     console.error('Chat error:', error);
     res.status(500).json({ error: 'Chat failed' });

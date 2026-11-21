@@ -11,6 +11,10 @@ RUN npm run build
 
 RUN npm prune --omit=dev
 
+RUN chown -R node:node /app
+
+USER node
+
 EXPOSE 7860
 
 ENV PORT=7860
